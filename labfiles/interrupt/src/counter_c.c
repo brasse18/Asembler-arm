@@ -2,10 +2,7 @@
 #include <linux/kernel.h>		// Needed for KERN_INFO
 #include <linux/interrupt.h>	// Needed for register_irq
 
-//#include <linux/unistd.h>
-
-#define IRQ 0	// Byt ut 0 mot rätt IRQ
-bool beenRun = false;
+#define IRQ 176	// Byt ut 0 mot rätt IRQ
 
 
 void set_high( void );
@@ -31,41 +28,33 @@ irqreturn_t counter_isr(int,void*);
 /*
 * Module init function
 */
-static void __exit btnrpi_exit(void);
 
 static int __init btnrpi_init(void)
 {
-  int i = 0;
+
+  setup();
+  //set_high();
+
+  printk(KERN_INFO "COUNTER - Driver initialized BEFORE LOOP.\n");
+
+  // for (i = 0; i < 1000000; i++)
+  // {
+  //   printk(KERN_INFO "LOOP: %d .\n", i);
+  //   i++;
+  //   i--;
+  // }
+  //set_low();
+  printk(KERN_INFO "COUNTER - Driver initialized.\n");
 
 
-  if (!beenRun)
+  if(request_irq(IRQ, counter_isr, IRQF_TRIGGER_FALLING, "counter#btn", NULL))
   {
-    setup();
-    set_high();
-
-    printk(KERN_INFO "COUNTER - Driver initialized BEFORE LOOP.\n");
-
-    for (i = 0; i < 100000; i++)
-    {
-      printk(KERN_INFO "LOOP: %d .\n", i);
-      i++;
-      i--;
-    }
-    set_low();
-    printk(KERN_INFO "COUNTER - Driver initialized.\n");
-    beenRun = true;
+    printk(KERN_ERR "COUNTER - Unable to request IRQ. Aborting.\n");
+    free_irq(IRQ,NULL);
+    return -EINVAL;
   }
-  /*
-  if(request_irq(IRQ, counter_isr, IRQF_TRIGGER_FALLING, "counter#btn", NULL)){
-  printk(KERN_ERR "COUNTER - Unable to request IRQ. Aborting.\n");
-  free_irq(IRQ,NULL);
-  return -EINVAL;
-}
-*/
 
-//btnrpi_exit();
-return 0;
-
+  return 0;
 }
 
 /**
