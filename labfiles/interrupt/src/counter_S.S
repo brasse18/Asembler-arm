@@ -3,9 +3,19 @@
 ** Variabler här
 */
 .equ ADDR, 0x3F200000		/* Fysisk basadress för GPIO */
-.equ GPIO_NR, 22
+.equ GPIO_NR_ONE,   17
+.equ GPIO_NR_TWO,   18
+.equ GPIO_NR_THREE, 27
+.equ GPIO_NR_FOUR,  22
+
+.equ GPIO_BUTTON_NR, 10
 GPIO_ADDR:
 .word 0
+COUNTER:
+.word 1
+
+format: .asciz  "Value: %d\n"
+tmp:    .word   0
 
 .text
 /*
@@ -28,12 +38,22 @@ bhs .Lloop
 /* r1 innehåller resten */
 bx lr
 
+short_wait:
+MOV r0, #0
+wait_loop:
+ADD r0, #1
+SUB r0, #1
+ADD r0, #1
+CMP r0, #150
+BLO wait_loop
+bx lr
+
 .GLOBAL set_high
 set_high:	/* Sets r0 to high */
 PUSH {lr}
 /* *(gpio_addr+ (4*(7 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
 
-MOV r0, #GPIO_NR /* GPIO17 */ @TODO: remove
+@MOV r0, #GPIO_NR /* GPIO17 */ @TODO: remove
 MOV r1, #32
 BL idiv
 ADD r0, r0, #7
@@ -53,7 +73,7 @@ set_low:
 PUSH {lr}
 /* *(gpio_addr+ (4*(10 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
 
-MOV r0, #GPIO_NR /* GPIO17 */ @TODO: remove
+@MOV r0, #GPIO_NR_ONE /* GPIO17 */ @TODO: remove
 MOV r1, #32
 BL idiv
 ADD r0, r0, #10
@@ -76,7 +96,16 @@ POP {pc}
 counter_isr:
 PUSH {lr}
 
+LDR r0, =format
+LDR r1, =tmp
+LDR r1, [r1]
+BL printk
+
+MOV r0, #GPIO_NR_TWO
 BL set_high
+
+MOV r0, #GPIO_NR_ONE
+BL set_low
 
 POP {pc}
 
@@ -103,7 +132,13 @@ br1:
 /* Output: *(gpio_addr + (4*(GPIO_NR/10))) |= (1<<(((GPIO_NR)%10)*3)) */
 /* -------------------- OUTPUT ------------------- */
 
-MOV r0, #GPIO_NR /* GPIO17 */
+
+
+
+
+
+
+MOV r0, #GPIO_NR_ONE /* GPIO17 */
 MOV r1, #10
 BL idiv
 LSL r0, r0, #2  /* *4 = << 2 */
@@ -119,8 +154,7 @@ LDR r4, [r2]
 ORR r0, r4, r1  /* r1 = (gpio_addr+ (4*(GPIO_NR/10))) |= (1<<(((GPIO_NR)%10)*3))    ett fel [r2]*/
 STR r0, [r2] /* *A = B ¨*/
 
-@ TODO: remove -----------------
-MOV r0, #17 /* GPIO17 */
+MOV r0, #GPIO_NR_TWO /* GPIO18 */
 MOV r1, #10
 BL idiv
 LSL r0, r0, #2  /* *4 = << 2 */
@@ -136,26 +170,13 @@ LDR r4, [r2]
 ORR r0, r4, r1  /* r1 = (gpio_addr+ (4*(GPIO_NR/10))) |= (1<<(((GPIO_NR)%10)*3))    ett fel [r2]*/
 STR r0, [r2] /* *A = B ¨*/
 
-MOV r0, #17 /* GPIO17 */ @TODO: remove
-MOV r1, #32
-BL idiv
-ADD r0, r0, #7
-LSL r0, r0, #2
-LDR r2, =GPIO_ADDR
-LDR r3, [r2]
-ADD r0, r0, r3  /* r0 = (gpio_addr+ (4*(7 + (GPIO_NR/32)))) */
 
-MOV r2, #1
-LSL r1, r2, r1
-STR r1, [r0]
-
-
-
-
+MOV r0, #GPIO_NR_ONE /* GPIO17 */ @TODO: remove
+BL set_high
 
 /* -------------------- INPUT ------------------- */
 /* *(gpio_addr + (4*(GPIO_NR/10))) &= ~(7<<((GPIO_NR%10)*3)); */
-MOV r0, #10 /* GPIO10 */
+MOV r0, #GPIO_BUTTON_NR /* GPIO10 */
 MOV r1, #10
 BL idiv
 LSL r0, r0, #2  /* *4 = << 2 */
@@ -172,22 +193,32 @@ LDR r4, [r2]
 AND r1, r4, r0  /* r1 = (gpio_addr + (4*(GPIO_NR/10))) &= ~(7<<((GPIO_NR%10)*3)) */
 STR r1, [r2]
 
-/* -------------------- HIGH ------------------- */
-/* *(gpio_addr+ (4*(7 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
-@MOV r0, #17 /* GPIO17 */
-@MOV r1, #32
-@BL idiv
-@ADD r0, r0, #7
-@LSL r0, r0, #2
-@LDR r2, =GPIO_ADDR
-@LDR r3, [r2]
-@ADD r0, r0, r3  /* r0 = (gpio_addr+ (4*(7 + (GPIO_NR/32)))) */
-@
-@MOV r2, #1
-@LSL r1, r2, r1
-@STR r1, [r0]
+/* -------------------- PULL UP ------------------- */
+@ *(gpio_addr + 148) = 2;
 
+LDR r0, =GPIO_ADDR
+LDR r1, [r0]
+ADD r1, #148
+MOV r2, #2
+STR r2, [r1]
 
+@short wait
+BL short_wait
+
+@ *(gpio_addr + 152) = (1<<(GPIO_NR%32));
+LDR r0, =GPIO_ADDR
+LDR r3, [r0]
+ADD r3, #152
+MOV r0, #GPIO_BUTTON_NR /* GPIO10 */
+MOV r1, #32
+BL idiv
+MOV r0, #1
+LSL r0, r0, r1
+
+STR r0, [r3]
+
+@short wait
+BL short_wait
 
 POP {r4, pc}
 /*
@@ -196,4 +227,30 @@ POP {r4, pc}
 .GLOBAL setdown
 setdown:
 PUSH {lr}
+
+MOV r0, #GPIO_NR_ONE /* GPIO17 */ @TODO: remove
+BL set_low
+
+MOV r0, #GPIO_NR_TWO /* GPIO17 */ @TODO: remove
+BL set_low
+
+@ *(gpio_addr + 148) = 0;
+LDR r0, =GPIO_ADDR
+LDR r1, [r0]
+ADD r1, #148
+MOV r2, #0
+STR r2, [r1]
+
+
+@ *(gpio_addr + 152) = 0;
+LDR r0, =GPIO_ADDR
+LDR r1, [r0]
+ADD r1, #152
+MOV r2, #0
+STR r2, [r1]
+
+@short wait
+BL short_wait
+
+
 POP {pc}
