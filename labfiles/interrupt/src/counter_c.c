@@ -31,29 +31,14 @@ irqreturn_t counter_isr(int,void*);
 
 static int __init btnrpi_init(void)
 {
-
   setup();
-  //set_high();
-
-  printk(KERN_INFO "COUNTER - Driver initialized BEFORE LOOP.\n");
-
-  // for (i = 0; i < 1000000; i++)
-  // {
-  //   printk(KERN_INFO "LOOP: %d .\n", i);
-  //   i++;
-  //   i--;
-  // }
-  //set_low();
-  printk(KERN_INFO "COUNTER - Driver initialized.\n");
-
-
   if(request_irq(IRQ, counter_isr, IRQF_TRIGGER_FALLING, "counter#btn", NULL))
   {
     printk(KERN_ERR "COUNTER - Unable to request IRQ. Aborting.\n");
     free_irq(IRQ,NULL);
     return -EINVAL;
   }
-
+  printk(KERN_INFO "COUNTER - Driver initialized.\n");
   return 0;
 }
 
