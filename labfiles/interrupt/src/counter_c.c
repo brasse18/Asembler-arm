@@ -2,13 +2,8 @@
 #include <linux/kernel.h>		// Needed for KERN_INFO
 #include <linux/interrupt.h>	// Needed for register_irq
 
-#define IRQ 176	// Byt ut 0 mot rätt IRQ
-
-
-//void set_high( void );
-
-//void set_low( void );
-
+// #define IRQ 176	// GPIO_NR 10: IRQ #176
+#define IRQ 175	// GPIO_NR 9: IRQ #175
 
 /*
 * Enables access to the gpio
