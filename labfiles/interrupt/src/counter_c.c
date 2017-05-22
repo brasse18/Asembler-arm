@@ -5,9 +5,9 @@
 #define IRQ 176	// Byt ut 0 mot rätt IRQ
 
 
-void set_high( void );
+//void set_high( void );
 
-void set_low( void );
+//void set_low( void );
 
 
 /*
