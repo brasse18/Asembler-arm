@@ -11,7 +11,7 @@ LIGHTS:
 COUNTER:
   .word 0
 
-format: .asciz  "Current counter value: %d\n"
+log_text: .asciz  "Current counter value: %d\n"
 
 .text
 /*
@@ -44,9 +44,10 @@ short_wait:
     BLO wait_loop
 bx lr
 
-set_high:	/* Sets r0 to high */
+/* Sets the GPIO_NR in r0 to high */
+set_high:
 PUSH {lr}
-    /* *(gpio_addr+ (4*(7 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
+    /* *(gpio_addr + (4*(7 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
     MOV r1, #32
     BL idiv
     ADD r0, r0, #7
@@ -61,9 +62,10 @@ PUSH {lr}
 
 POP {pc}
 
+/* Sets the GPIO_NR in r0 to low */
 set_low:
 PUSH {lr}
-    /* *(gpio_addr+ (4*(10 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
+    /* *(gpio_addr + (4*(10 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
     MOV r1, #32
     BL idiv
     ADD r0, r0, #10
@@ -86,6 +88,7 @@ counter_isr:
 PUSH {r4, r5, r6, r7, lr}
 
 @ Increase counter
+@ Counter = Counter mod(15) + 1, [1, 15]
     LDR r5, =COUNTER
     LDR r0, [r5]
     MOV r1, #15
@@ -93,8 +96,8 @@ PUSH {r4, r5, r6, r7, lr}
     ADD r6, r1, #1  @ Value of counter is stored in r6
     STR r6, [r5]    @ Update counter
 
-@ Print to log
-    LDR r0, =format
+@ Print current counter value to log
+    LDR r0, =log_text
     MOV r1, r6
     BL printk
 
@@ -103,21 +106,22 @@ PUSH {r4, r5, r6, r7, lr}
 counter_loop:
     LDR r5, [r4]    @ r5 = current light gpio_nr
     CMP r5, #0
-    BEQ counter_loop_end
+    BEQ counter_loop_end @ while gpio_nr != 0
 
-    MOV r0, r6  @ Move counter/rest to r0
+    MOV r0, r6  @ Move counter/remainder to r0
     MOV r1, r7  @ move current light value to r1
-    BL idiv     @ divide counter/rest by current light value
-    MOV r6, r1  @ Update remainder/rest
+    BL idiv     @ divide counter/remainder by current light value
+    MOV r6, r1  @ Update remainder/remainder
     CMP r0, #1
     MOV r0, r5  @ Set r0 to light gpio_nr
 
-    BNE light_off
-    BL set_high
+    BNE light_off @ if remainder / light value != 1
+    BL set_high   @ else turn light on
     B light_end
 light_off:
     BL set_low
 light_end:
+
     ADD r4, r4, #4  @ Set current light gpio_nr to next light
     LSR r7, r7, #1  @ Update current light value to next light's value
     B counter_loop
@@ -144,7 +148,7 @@ PUSH {r4, lr}
     LSL r1, r1, r0  /* 1 << (((GPIO_NR)%10)*3) */
     LDR r4, [r2]
     ORR r0, r4, r1  /* r1 = (gpio_addr+ (4*(GPIO_NR/10))) |= (1<<(((GPIO_NR)%10)*3))    ett fel [r2]*/
-    STR r0, [r2] /* *A = B ¨*/
+    STR r0, [r2]    /* *A = B ¨*/
 POP {r4, pc}
 
 @ Sets the GPIO_NR in r0 to input
@@ -159,12 +163,12 @@ PUSH {r4, lr}
     ADD r2, r0, r3  /* r2 = (gpio_addr+ (4*(GPIO_NR/10))) */
 
     MOV r0, #3
-    MUL r0, r1, r0  /* ((GPIO_NR)%10)*3) */
+    MUL r0, r1, r0 /* ((GPIO_NR)%10)*3) */
     MOV r1, #7
     LSL r0, r1, r0 /* 7 << ((GPIO_NR)%10)*3) */
     MVN r0, r0     /* ~A */
     LDR r4, [r2]
-    AND r1, r4, r0  /* r1 = (gpio_addr + (4*(GPIO_NR/10))) &= ~(7<<((GPIO_NR%10)*3)) */
+    AND r1, r4, r0 /* r1 = (gpio_addr + (4*(GPIO_NR/10))) &= ~(7<<((GPIO_NR%10)*3)) */
     STR r1, [r2]
 POP {r4, pc}
 
@@ -178,7 +182,7 @@ PUSH {r4, lr}
     LDR r2, =ADDR
     AND r0, r2, #0x00FFFFFF							/* (addr) & 0x00FFFFFF) */
     LSR r2, r2, #4                      /* (addr) >> 4  */
-    AND r1, r2, #0x0F000000	          /* ( & 0x0F000000) */
+    AND r1, r2, #0x0F000000	            /* ( & 0x0F000000) */
     ADD r0, r0, r1
     ADD r0, r0, #0xF0000000							/* + 0xF0000000 */
     LDR r4, =GPIO_ADDR                  /* GPIO_ADDR label addr saved in r4 */
@@ -193,7 +197,7 @@ PUSH {r4, lr}
 setup_output_loop:
     LDR r0, [r4]
     CMP r0, #0
-    BEQ setup_output_loop_end
+    BEQ setup_output_loop_end @ loop until gpio_nr == 0
     BL set_output
     ADD r4, r4, #4
     BL setup_output_loop
@@ -204,6 +208,7 @@ setup_output_loop_end:
     /* -------------------- INPUT ------------------- */
     MOV r0, #GPIO_BUTTON_NR
     BL set_input
+
     /* -------------------- PULL UP ------------------- */
     @ *(gpio_addr + 148) = 2;
     LDR r0, =GPIO_ADDR
@@ -242,7 +247,7 @@ PUSH {r4, lr}
 setdown_light_loop:
     LDR r0, [r4]
     CMP r0, #0
-    BEQ setdown_light_loop_end
+    BEQ setdown_light_loop_end  @ loop until gpio_nr == 0
     BL set_high
     LDR r0, [r4]
     BL set_low
