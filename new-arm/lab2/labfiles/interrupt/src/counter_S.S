@@ -94,22 +94,22 @@ POP {pc}
 
 	set_output_low:
 	PUSH {lr}
-	    /* *(gpio_addr + (4*(7 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
-			// r2 = (gpio_addr + (4*(7 + (GPIO_NR/32))))
+	    /* *(gpio_addr + (4*(10 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32); */
+			// r2 = (gpio_addr + (4*(10 + (GPIO_NR/32))))
 			// r3 = 1 << (GPIO_NR% 32)
 	    MOV r1, #32
 	    BL idiv									// r0 = (GPIO_NR/32)
 			MOV r3,r1								// r3 = (GPIO_NR% 32)
-			ADD r2,r0,#7						//(7 + (GPIO_NR/32))
-			LSL r2,r2,#2						//(4*(7 + (GPIO_NR/32)))   ((r2*4) = (2 << r2))
+			ADD r2,r0,#10						//(10 + (GPIO_NR/32))
+			LSL r2,r2,#2						//(4*(10 + (GPIO_NR/32)))   ((r2*4) = (2 << r2))
 			LDR r0, =GPIO_ADDR			//loade adres till r0
 			LDR r1, [r0]						//loada värdet som pekaren pekar på till r0
-			ADD r2,r2,r1						//(gpio_addr + (4*(7 + (GPIO_NR/32))))
+			ADD r2,r2,r1						//(gpio_addr + (4*(10 + (GPIO_NR/32))))
 
 			MOV r0,#1
 			LSL r3,r0,r3						//1 << (GPIO_NR% 32)   (r1 = (GPIO_NR% 32))
 
-			STR	r3,[r2]							//(gpio_addr + (4*(7 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32)
+			STR	r3,[r2]							//(gpio_addr + (4*(10 + (GPIO_NR/32)))) = 1 << (GPIO_NR% 32)
 
 	POP {pc}
 
@@ -142,8 +142,14 @@ PUSH {r4, lr}
     STR r0, [r4] 												/* Store the calculated address in GPIO_ADDR */
 		MOV r0, #17
 		BL set_output
+		MOV r0, #18
+		BL set_output
 		MOV r0, #17
 		BL set_output_high
+		MOV r0, #18
+		BL set_output_high
+		MOV r0, #17
+		BL set_output_low
 
 POP {r4, pc}
 
