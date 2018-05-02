@@ -32,7 +32,7 @@ static int __init btnrpi_init(void)
 	}
 	if(request_irq(IRQ2, counter_isr_down, IRQF_TRIGGER_FALLING, "counterDown#btn", NULL)){
 		printk(KERN_ERR "COUNTER - Unable to request IRQ. Aborting.\n");
-		free_irq(IRQ1,NULL);
+		//free_irq(IRQ1,NULL);
 		free_irq(IRQ2,NULL);
 		return -EINVAL;
 	}
@@ -48,9 +48,9 @@ static void __exit btnrpi_exit(void)
 	printk(KERN_INFO "COUNTER - Unloading driver\n");
 	setdown();
 	// free irqs
-	free_irq(IRQ1, NULL);	
-	free_irq(IRQ2, NULL);	
-	
+	free_irq(IRQ1, NULL);
+	free_irq(IRQ2, NULL);
+
 }
 
 MODULE_LICENSE("GPLv3");
