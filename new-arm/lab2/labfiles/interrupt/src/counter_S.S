@@ -6,6 +6,9 @@ GPIO_ADDR: .word 0
 COUNTER: .word 0
 LED: .word 17, 18, 27, 22, 0
 log_text: .asciz "Current counter value: %d\n"
+text_bin: .asciz "Bin nr: %d"
+text_bin_nr: .asciz " %d"
+text_endl: .asciz "\n"
 
 .text
 
@@ -202,12 +205,12 @@ PUSH {lr}
 
 			BL end_boi
 			.reset_zero:
-				MOV r3,#0
+				MOV r3,#1
 
 			BL end_boi
 	.count_down:
 		LDR r3,[r4]
-		CMP r3,#0
+		CMP r3,#1
 		BEQ .reset_fifteen
 			LDR r3,[r4]
 			SUB r3,#1
@@ -217,9 +220,10 @@ PUSH {lr}
 				MOV r3,#15
 
 
-
 				end_boi:
 				  STR r3,[r4]
+
+
 					LDR r0, =log_text
 					MOV r1, r3
 					BL printk
@@ -259,6 +263,9 @@ PUSH {lr}
 
 .end_loop:
 */
+
+
+
 MOV r0,#17
 BL set_output_low
 MOV r0,#18
@@ -270,12 +277,23 @@ BL set_output_low
 
 
 LDR r4,=COUNTER
-LDR r3,[r4]
+LDR r5,[r4]
 MOV r4,#1
 
 //LDR r6,=LED
 //LDR r5,[r6]
 
+
+
+AND r6,r5,r4
+
+// print bin nr
+LDR r0, =text_bin
+MOV r1,r6
+BL printk
+// ------------
+
+// if r6 == #1 then set led to high
 CMP r6,#1
 BEQ start_led
 BL skip_1
@@ -283,11 +301,19 @@ start_led:
 	MOV r0,#17
 	BL set_output_high
 skip_1:
+// end of if
 
 
-LSR r3,#1
-AND r6,r3,r4
+LSR r5,#1
+AND r6,r5,r4
 
+// print bin nr
+LDR r0, =text_bin_nr
+MOV r1,r6
+BL printk
+// -----------
+
+// if r6 == #1 then set led to high
 CMP r6,#1
 BEQ start_led_2
 BL skip_2
@@ -295,10 +321,18 @@ start_led_2:
 	MOV r0,#18
 	BL set_output_high
 skip_2:
+// end of if
 
-LSR r3,#1
-AND r6,r3,r4
+LSR r5,#1
+AND r6,r5,r4
 
+// print bin nr
+LDR r0, =text_bin_nr
+MOV r1,r6
+BL printk
+// -----------
+
+// if r6 == #1 then set led to high
 CMP r6,#1
 BEQ start_led_3
 BL skip_3
@@ -306,10 +340,18 @@ start_led_3:
 	MOV r0,#27
 	BL set_output_high
 skip_3:
+// end of if
 
-LSR r3,#1
-AND r6,r3,r4
+LSR r5,#1
+AND r6,r5,r4
 
+// print bin nr
+LDR r0, =text_bin_nr
+MOV r1,r6
+BL printk
+// -----------
+
+// if r6 == #1 then set led to high
 CMP r6,#1
 BEQ start_led_4
 BL skip_4
@@ -317,6 +359,12 @@ start_led_4:
 	MOV r0,#22
 	BL set_output_high
 skip_4:
+// end of if
+
+BL print_endl
+BL print_endl
+
+
 
 /*
 MOV r0,#18
@@ -337,6 +385,15 @@ BL printk
 lol:
 
 POP {r4,r5,r6,r7,pc}
+
+
+print_endl:
+// print en ny rad
+	PUSH {lr}
+		LDR r0, =text_endl
+		BL printk
+	POP {pc}
+
 
 .GLOBAL setup
 setup:
