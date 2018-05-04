@@ -154,16 +154,14 @@ POP {pc}
 	POP {r4,r5,r6,pc}
 
 	short_wait:
-	PUSH {lr}
-	MOV r0,#0
-	MOV r1,#1000
-	for_loop:
-	ADD r0,#1
-	ADD r0,#1
-	SUB r0,#1
-	CMP r0,r1
-	BNE for_loop
-	POP {pc}
+		PUSH {lr}
+			MOV r0,#0
+			MOV r1,#10
+				for_loop:
+					ADD r0,#1
+					CMP r0,r1
+				BNE for_loop
+		POP {pc}
 
 /*
 ** Avbrottsrutin som kallas när ett interrupt sker. Ska räkna uppåt
