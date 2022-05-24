@@ -1,0 +1,118 @@
+    .data
+counter:    .quad 0
+GPIO:        .quad 0
+MSG:        .asciz "%d\n"
+    .text
+    .global setup
+    .global interrupt
+
+interrupt:
+    # put counter in rdi
+    MOVQ counter, %r15
+    # increase rdi with 1
+    CMP $15, %r15
+    JE Reset_counter
+    INCQ %r15
+    # put in counter
+    MOVQ %r15, counter
+    CALL Set_counter_to_LED
+    ret
+
+Reset_counter:
+    MOVQ $0, counter
+    ret
+
+setup:
+    # hella set upp fungerar och är korekr
+    # 601061
+    #((0x60 << 16) | (0xFFFF & 0x1000) | (~(0x9E) & 0xFF))
+    MOVQ $0x60, %rax        # 0x60                                    =96
+    SHLQ $16, %rax            # (0x60 << 16))                            =6291456
+    MOVQ $0xFFFF, %rbx        # (0xFFFF)                                =65535
+    ANDQ $0x1000, %rbx        # (0xFFFF & 0x1000)                        =4096 (65535 & 4096)
+    MOVQ $0x9E, %rcx        # (0x9E)                                =158    10011110
+    NOTQ %rcx                # ~(0x9E)                                =97 (unsigned)    eller -159 (signed)    01100001
+    ANDQ $0xff, %rcx        # (~(0x9E) & 0xFF)                        =97 (97) & (255)    (01100001 | 11111111) = 01100001
+    # ------ stämer ---------
+    
+    # 11000000000000000000000
+    #           1000000000000
+    # 11000000001000000000000 = 6295552
+    #                01100001
+    # 11000000001000001100001 = 6295649
+    ORQ %rbx, %rax            # ((0x60 << 16) | (0xFFFF & 0x1000)        =6295552 (6291456 | 4096) (11000000000000000000000 | 1000000000000)=11000000001000000000000
+    ORQ %rcx, %rax            # (0x60 << 16) | (0xFFFF & 0x1000) | (~(0x9E) & 0xFF)        =6295649 (6295552 | 97) (11000000001000000000000 | 01100001)
+    # offset******
+    SUBQ $5694584, %rax
+    # MOVQ %rax, %r12            # test print
+    # CALL Print_int            # callar Test print
+                                                                                                # 601065 5694584
+    MOVQ %rax, GPIO            # spara addresen till GPIO:                detta stämer ej vi skulle få 6295649 vilket GPIO: inte ligger på
+    # CALL Print_int
+    
+    CALL setup_LED            # set upp Led
+    # CALL setup_BUTTON        # set up Buttons
+
+    ret
+
+Print_int:
+
+    mov  $MSG, %rdi
+      mov  %r12, %rsi
+      mov  $0, %eax
+      call printf
+    ret
+
+
+setup_LED:  # set upp all led to output   LED: 1 2 3 4 
+    # input till funktionen i %rax det är gpio_addr
+    # (short*)gpio_addr |= (0x2 << 6) << ((4-GPIO_NR)*2)#
+
+    # shlq k, D | D ← D << k
+    # SHL s,d    
+    # s kan bara vara en siffra eller CL registret (inget annat fungerar)
+    # d kan vara ett register från 8 till 64 bit
+
+    # 6303841 (GPIO_NR = 1)
+    
+    # in1 = rdi  - dil
+    # in2 = rsi  - sil 
+    # in3 = rdx  - dl
+    # in4 = rcx  - cl
+    # in5 = r8    - r8b
+    # in6 = r9 - r9b
+    MOV $0x2, %dil            # 0x2
+    SHL $6, %dil            # (0x2 << 6)
+    MOV $0, %sil            # GPIO_NR
+    LOOP:
+        INC %sil            # incr GPIO_NR
+        CMP $5, %sil        # cmp to 5
+        JE END_LOOP            # stop at 5, since 4 is end
+        MOV %sil, %cl        # GPIO_NR
+        MOV $4, %dl
+        SUB %cl, %dl        # 4-GPIO_NR                             (3)
+        MOV %dl, %cl
+        SHL $1, %cl            # bitshift 2 is mult 2, (4-GPIO_NR)*2)    (6)
+        MOV $0x2, %dl        # 0x2                                    (2)
+        SHL $6, %dl            # (0x2 << 6)                            (128)
+        SHL %cl, %dx        # (0x2 << 6) << ((4-GPIO_NR)*2)            (128 << 6) (8192)
+        LEA GPIO, %rdi        # (short*)gpio_addr (2660, kan ändras) (addres = 6295640) (värde = )
+        MOV (%rdi), %r9
+        # MOV (%r9), %rdi                
+
+        # OR %di, %dx            # (short*)gpio_addr | (0x2 << 6) << ((4-GPIO_NR)*2) (2660 | 8192) = (12385) 10852 10852
+        MOV $10, %r9
+        OR $99, %r9b
+        MOV %r9, %r12
+        CALL Print_int
+        # MOV GPIO, %r8
+        # -------------------- fungerar till hit -----------------------
+        # MOV %rdx, (%r8)    # (short*)gpio_addr |= (0x2 << 6) << ((4-GPIO_NR)*2)
+        LEA GPIO, %r8
+           MOVQ %rdx, (%r8)
+        # ------------------^^^^ fungerar ej ^^^^-----------------------
+        LEA GPIO, %rdi
+        
+        # JMP LOOP
+    END_LOOP:
+    ret
